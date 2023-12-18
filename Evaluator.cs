@@ -21,48 +21,69 @@ class Evaluator {
          tVariable = tvar;
          tokens.RemoveRange (0, 2);
       }
-      foreach (var t in tokens) Process (t);
+      for (int i = 0; i < tokens.Count; i++) {
+         if (i != tokens.Count - 1 && tokens[i] is TOpArithmetic binary && binary.Op is '+' or '-' && tokens[i + 1] is TOpUnary unary) {
+            binary.Op = binary.Op == unary.Uop ? '+' : '-';
+            tokens.Remove (unary);
+         }
+         Process (tokens[i]);
+      }
       while (mOperators.Count > 0) ApplyOperator ();
+      if (mBasePriority != 0) Error ("Too many Punctuations");
+      if (mOperators.Count > 0) Error ("Too many operators");
+      if (mOperands.Count != 1) Error ("Too many operands");
       double f = mOperands.Pop ();
       if (tVariable != null) mVars[tVariable.Name] = f;
       return f;
    }
-
-   public int BasePriority { get; private set; }
-
    public double GetVariable (string name) {
       if (mVars.TryGetValue (name, out double f)) return f;
       throw new EvalException ($"Unknown variable: {name}");
    }
    readonly Dictionary<string, double> mVars = new ();
-
    void Process (Token token) {
       switch (token) {
          case TNumber num:
             mOperands.Push (num.Value);
             break;
          case TOperator op:
-            while (mOperators.Count > 0 && mOperators.Peek ().Priority > op.Priority)
+            op.FinalPriority = mBasePriority + op.Priority;
+            while (mOperators.Count > 0 && mOperators.Peek ().FinalPriority > op.FinalPriority)
                ApplyOperator ();
             mOperators.Push (op);
             break;
          case TPunctuation p:
-            BasePriority += p.Punct == '(' ? 10 : -10;
+            mBasePriority += p.Punct == '(' ? 10 : -10;
             break;
          default:
-            throw new EvalException ($"Unknown token: {token}");
+            Error ($"Unknown token: {token}");
+            return;
       }
    }
-   readonly Stack<double> mOperands = new ();
-   readonly Stack<TOperator> mOperators = new ();
 
    void ApplyOperator () {
       var op = mOperators.Pop ();
-      var f1 = mOperands.Pop ();
-      if (op is TOpFunction func) mOperands.Push (func.Evaluate (f1));
-      else if (op is TOpArithmetic arith) {
-         var f2 = mOperands.Pop ();
+      if (op is TOpArithmetic arith) {
+         if (mOperands.Count < 2) Error ("Too few operands");
+         double f1 = mOperands.Pop (), f2 = mOperands.Pop ();
          mOperands.Push (arith.Evaluate (f2, f1));
       }
+      if (op is TOpUnary unary) {
+         if (mOperands.Count < 1) Error ("Too few operands");
+         double f = mOperands.Pop ();
+         mOperands.Push (unary.Apply (f));
+      }
+      if (op is TOpFunction func) {
+         if (mOperands.Count < 1) Error ("Too few operands");
+         double f = mOperands.Pop ();
+         mOperands.Push (func.Evaluate (f));
+      }
    }
+   void Error (string msg) {
+      throw new EvalException (msg);
+   }
+
+   int mBasePriority;
+   readonly Stack<double> mOperands = new ();
+   readonly Stack<TOperator> mOperators = new ();
 }

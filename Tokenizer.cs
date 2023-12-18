@@ -15,7 +15,7 @@ class Tokenizer {
             case ' ' or '\t': continue;
             case (>= '0' and <= '9') or '.': return GetNumber ();
             case '(' or ')': return new TPunctuation (ch);
-            case '+' or '-' or '*' or '/' or '^' or '=': return new TOpArithmetic (mEval, ch);
+            case '+' or '-' or '*' or '/' or '^' or '=': return GetOperator ();
             case >= 'a' and <= 'z': return GetIdentifier ();
             default: return new TError ($"Unknown symbol: {ch}");
          }
@@ -31,10 +31,17 @@ class Tokenizer {
          mN--; break;
       }
       string sub = mText[start..mN];
-      if (mFuncs.Contains (sub)) return new TOpFunction (mEval, sub);
+      if (mFuncs.Contains (sub)) return new TOpFunction (sub);
       else return new TVariable (mEval, sub);
    }
    readonly string[] mFuncs = { "sin", "cos", "tan", "sqrt", "log", "exp", "asin", "acos", "atan" };
+
+   Token GetOperator () {
+      int start = mN - 1;
+      var ch = mText[start];
+      if (ch is '+' or '-' && (start is 0 || mText[start - 1] is '+' or '-' or '*' or '^' or '/' or '(' or '=' or ' ')) return new TOpUnary (ch);
+      return new TOpArithmetic (ch);
+   }
 
    Token GetNumber () {
       int start = mN - 1;
