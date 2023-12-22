@@ -22,7 +22,6 @@ class Tokenizer {
       }
       return new TEnd ();
    }
-
    Token GetIdentifier () {
       int start = mN - 1;
       while (mN < mText.Length) {
@@ -50,7 +49,7 @@ class Tokenizer {
          if (ch is (>= '0' and <= '9') or '.') continue;
          mN--; break;
       }
-      // Now, mN points to the first character of mText that is not part of the number
+      // mN points to the first character of mText that is not part of the number
       string sub = mText[start..mN];
       if (double.TryParse (sub, out double f)) return new TLiteral (f);
       return new TError ($"Invalid number: {sub}");
