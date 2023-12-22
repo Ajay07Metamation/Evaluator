@@ -23,16 +23,32 @@ class TVariable : TNumber {
 }
 
 abstract class TOperator : Token {
-   protected TOperator (Evaluator eval) => mEval = eval;
    public abstract int Priority { get; }
-   readonly protected Evaluator mEval;
+   public virtual int FinalPriority { get; set; }
+}
+
+class TOpUnary : TOperator {
+   public TOpUnary (char uop) => Uop = uop;
+   public override int Priority => 5;
+   public char Uop { get; private set; }
+   public double Apply (double a)
+       => Uop switch {
+          '+' => a,
+          '-' => -a,
+          _ => throw new EvalException ("Unknown Operator"),
+       };
+   public override string ToString () => $"Unary Operator {Uop} : {Priority}";
 }
 
 class TOpArithmetic : TOperator {
-   public TOpArithmetic (Evaluator eval, char ch) : base (eval) => Op = ch;
-   public char Op { get; private set; }
+   public TOpArithmetic (char ch) => mOp = ch;
+   public char Op {
+      get { return mOp; }
+      set { mOp = value; }
+   }
+   char mOp;
    public override string ToString () => $"op:{Op}:{Priority}";
-   public override int Priority => sPriority[Op] + mEval.BasePriority;
+   public override int Priority => sPriority[Op];
    static Dictionary<char, int> sPriority = new () {
       ['+'] = 1, ['-'] = 1, ['*'] = 2, ['/'] = 2, ['^'] = 3, ['='] = 4,
    };
@@ -50,10 +66,10 @@ class TOpArithmetic : TOperator {
 }
 
 class TOpFunction : TOperator {
-   public TOpFunction (Evaluator eval, string name) : base (eval) => Func = name;
+   public TOpFunction (string name) => Func = name;
    public string Func { get; private set; }
    public override string ToString () => $"func:{Func}:{Priority}";
-   public override int Priority => 4 + mEval.BasePriority;
+   public override int Priority => 5;
 
    public double Evaluate (double f) {
       return Func switch {
